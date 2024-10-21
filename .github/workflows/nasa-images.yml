@@ -53,7 +53,8 @@ jobs:
               echo "$RESPONSE" > "$CACHE_FILE"
 
               # Obtener la URL de la imagen
-              URL=$(echo "$RESPONSE" | jq -r '.url')
+              URL=$(echo "$RESPONSE" | jq -r '.url') 
+              echo $URL
             fi
 
             # Verificar si la URL es válida
