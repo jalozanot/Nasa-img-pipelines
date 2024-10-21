@@ -24,7 +24,7 @@ jobs:
         id: load_dates
         run: |
           # Cargar fechas desde el archivo JSON
-          DATES=$(jq -r '.dates[]' dates.json)
+          DATES=$(jq -r '.dates[]' data.json)
           # Guardar las fechas en un archivo temporal para usarlas más adelante
           echo "$DATES" > dates.tmp
 
