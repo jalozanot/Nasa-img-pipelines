@@ -47,7 +47,7 @@ jobs:
               URL=$(jq -r '.url' "$CACHE_FILE")
             else
               # Hacer la petición al API
-              RESPONSE=$(curl -s "https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&date=$DATE")
+              RESPONSE=$(curl -s "https://api.nasa.gov/planetary/apod?api_key=edwmxvlXzVcREu4iq5nPKVJ619dKLUtCCLNHKwQ6&date=2024-01-01")
               
               # Guardar la respuesta en cache
               echo "$RESPONSE" > "$CACHE_FILE"
