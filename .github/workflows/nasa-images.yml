@@ -8,9 +8,7 @@ on:
 jobs:
   download_images:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        date: [2022-10-10, 2023-01-05, 2024-07-15]  # Se leerá dinámicamente de un archivo JSON más abajo.
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -25,49 +23,62 @@ jobs:
       - name: Load Dates from JSON
         id: load_dates
         run: |
-          DATES=$(jq -r '.dates[]' dates.json | paste -sd, -)
-          echo "DATES=${DATES}" >> $GITHUB_ENV
+          # Cargar fechas desde el archivo JSON
+          DATES=$(jq -r '.dates[]' dates.json)
+          # Guardar las fechas en un archivo temporal para usarlas más adelante
+          echo "$DATES" > dates.tmp
 
-      - name: Fetch and Cache Image from NASA API
+      - name: Fetch and Cache Images from NASA API
         run: |
           CACHE_DIR="cache"
           IMAGE_DIR="images"
-          DATE="${{ matrix.date }}"
-          
-          # Crear directorios si no existen
-          mkdir -p $CACHE_DIR
-          mkdir -p $IMAGE_DIR
+          # Leer fechas desde el archivo temporal
+          while read -r DATE; do
+            # Crear directorios si no existen
+            mkdir -p $CACHE_DIR
+            mkdir -p $IMAGE_DIR
 
-          CACHE_FILE="$CACHE_DIR/$date.json"
-          IMAGE_FILE="$IMAGE_DIR/img-$DATE.jpg"
+            CACHE_FILE="$CACHE_DIR/$DATE.json"
+            IMAGE_FILE="$IMAGE_DIR/img-$DATE.jpg"
 
-          # Revisar si el cache existe
-          if [ -f "$CACHE_FILE" ]; then
-            echo "Cache encontrado para la fecha $DATE."
-            URL=$(jq -r '.url' "$CACHE_FILE")
-          else
-            # Hacer la petición al API
-            RESPONSE=$(curl -s "https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&date=$DATE")
-            
-            # Guardar la respuesta en cache
-            echo "$RESPONSE" > "$CACHE_FILE"
+            # Revisar si el cache existe
+            if [ -f "$CACHE_FILE" ]; then
+              echo "Cache encontrado para la fecha $DATE."
+              URL=$(jq -r '.url' "$CACHE_FILE")
+            else
+              # Hacer la petición al API
+              RESPONSE=$(curl -s "https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&date=$DATE")
+              
+              # Guardar la respuesta en cache
+              echo "$RESPONSE" > "$CACHE_FILE"
 
-            # Obtener la URL de la imagen
-            URL=$(echo "$RESPONSE" | jq -r '.url')
-          fi
+              # Obtener la URL de la imagen
+              URL=$(echo "$RESPONSE" | jq -r '.url')
+            fi
 
-          # Verificar si la URL es válida
-          if [[ "$URL" != "null" ]]; then
-            echo "Descargando imagen para la fecha $DATE."
-            curl -s "$URL" --output "$IMAGE_FILE"
-          else
-            echo "No se encontró imagen para la fecha $DATE."
-            exit 1
-          fi
+            # Verificar si la URL es válida
+            if [[ "$URL" != "null" ]]; then
+              echo "Descargando imagen para la fecha $DATE."
+              curl -s "$URL" --output "$IMAGE_FILE"
+              # Subir artefacto para la imagen descargada
+              echo "Subiendo artefacto para la imagen de la fecha $DATE."
+              echo "img-$DATE" >> artifacts.tmp
+              echo "$IMAGE_FILE" >> artifacts.tmp
+            else
+              echo "No se encontró imagen para la fecha $DATE."
+            fi
+          done < dates.tmp
 
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: img-${{ matrix.date }}
-          path: images/img-${{ matrix.date }}.jpg
-          retention-days: 1
+      - name: Upload images as artifacts
+        run: |
+          while read -r line; do
+            img_name=$(echo "$line" | awk '{print $1}')
+            img_path=$(echo "$line" | awk '{print $2}')
+            echo "Subiendo artefacto: $img_name"
+            echo "Upload artifact $img_name"
+            actions/upload-artifact@v3
+            with:
+              name: "$img_name"
+              path: "$img_path"
+              retention-days: 1
+          done < artifacts.tmp
