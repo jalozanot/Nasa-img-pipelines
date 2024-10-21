@@ -1,0 +1,62 @@
+name: NASA Images Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  download_images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        date: [2022-10-10, 2023-01-05, 2024-07-15]  # Se leerá dinámicamente de un archivo JSON más abajo.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up jq for JSON parsing
+        run: sudo apt-get install jq
+
+      - name: Load NASA API Key
+        id: nasa_api_key
+        run: echo "API_KEY=${{ secrets.NASA_API_KEY }}" >> $GITHUB_ENV
+
+      - name: Load Dates from JSON
+        id: load_dates
+        run: |
+          DATES=$(jq -r '.dates[]' dates.json | paste -sd, -)
+          echo "DATES=${DATES}" >> $GITHUB_ENV
+
+      - name: Fetch and Cache Image from NASA API
+        run: |
+          CACHE_DIR="cache"
+          IMAGE_DIR="images"
+          DATE="${{ matrix.date }}"
+          
+          # Crear directorios si no existen
+          mkdir -p $CACHE_DIR
+          mkdir -p $IMAGE_DIR
+
+          CACHE_FILE="$CACHE_DIR/$DATE.json"
+          IMAGE_FILE="$IMAGE_DIR/img-$DATE.jpg"
+
+          # Revisar si el cache existe
+          if [ -f "$CACHE_FILE" ]; then
+            echo "Cache encontrado para la fecha $DATE."
+            URL=$(jq -r '.url' "$CACHE_FILE")
+          else
+            # Hacer la petición al API
+            RESPONSE=$(curl -s "https://api.nasa.gov/planetary/apod?api_key=${NASA_API_KEY}&date=$DATE")
+            
+            # Guardar la respuesta en cache
+            echo "$RESPONSE" > "$CACHE_FILE"
+
+            # Obtener la URL de la imagen
+            URL=$(echo "$RESPONSE" | jq -r '.url')
+          fi
+
+          # Verificar si la URL es válida
+          if [[ "$URL" != "null" ]]; then
+            echo "Descargando imagen para la fecha $DATE."
+            curl -s "$URL" --output "$IMAGE_FI
