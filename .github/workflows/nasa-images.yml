@@ -71,15 +71,8 @@ jobs:
           done < dates.tmp
 
       - name: Upload images as artifacts
-        run: |
-          while read -r line; do
-            img_name=$(echo "$line" | awk '{print $1}')
-            img_path=$(echo "$line" | awk '{print $2}')
-            echo "Subiendo artefacto: $img_name"
-            echo "Upload artifact $img_name"
-            actions/upload-artifact@v3
-            with:
-              name: "$img_name"
-              path: "$img_path"
-              retention-days: 1
-          done < artifacts.tmp
+        uses: actions/upload-artifact@v3
+        with:
+          name: "NASA Images"
+          path: images/
+          retention-days: 1
