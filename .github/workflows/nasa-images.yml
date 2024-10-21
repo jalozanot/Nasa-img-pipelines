@@ -38,7 +38,7 @@ jobs:
           mkdir -p $CACHE_DIR
           mkdir -p $IMAGE_DIR
 
-          CACHE_FILE="$CACHE_DIR/$DATE.json"
+          CACHE_FILE="$CACHE_DIR/$date.json"
           IMAGE_FILE="$IMAGE_DIR/img-$DATE.jpg"
 
           # Revisar si el cache existe
