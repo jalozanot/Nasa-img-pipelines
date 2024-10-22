@@ -1,4 +1,4 @@
-name: NASA Images Pipeline
+rrname: NASA Images Pipeline
 
 on:
   push:
