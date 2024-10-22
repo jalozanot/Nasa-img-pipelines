@@ -1,0 +1,61 @@
+name: NASA Images Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  download_images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        date: ${{ fromJson(secrets.DATES_JSON) }}
+    steps:
+      - uses: actions/checkout@v2
+      - run: sudo apt-get install jq
+      - name: Load NASA API Key
+        run: echo "API_KEY=${{ secrets.NASA_API_KEY }}" >> $GITHUB_ENV
+      - name: Fetch and Cache Images
+        run: |
+          CACHE_DIR="cache"
+          IMAGE_DIR="images"
+          API_KEY="${{ secrets.NASA_API_KEY }}"
+
+          # Función para obtener la URL de la imagen
+          get_image_url() {
+            local date="$1"
+            local api_key="$2"
+            response=$(curl -s "https://api.nasa.gov/planetary/apod?api_key=${api_key}&date=$date")
+            url=$(echo "$response" | jq -r '.url')
+            echo "$url"
+          }
+
+          # Función para descargar la imagen
+          download_image() {
+            local url="$1"
+            local filename="$2"
+            curl -s "$url" --output "$filename"
+          }
+
+          # Iterar sobre las fechas
+          for date in "${{ matrix.date }}"; do
+            # Obtener la URL de la imagen
+            image_url=$(get_image_url "$date" "$API_KEY")
+
+            # Descargar la imagen si la URL es válida
+            if [[ "$image_url" != "null" ]]; then
+              image_file="$IMAGE_DIR/img-$date.jpg"
+              download_image "$image_url" "$image_file"
+              echo "Imagen descargada: $image_file"
+            else
+              echo "No se encontró imagen para la fecha $date"
+            fi
+          done
+
+      - name: Upload images as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: "NASA Images"
+          path: images/
+          retention-days: 1
