@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        date: []
+        date: []  # Se establecerá dinámicamente
 
     steps:
       - name: Checkout repository
@@ -30,17 +30,14 @@ jobs:
         run: |
           # Leer fechas desde data.json
           DATES=$(jq -r '.dates[]' data.json)
-          echo "DATES=$DATES"
+          echo "Fechas cargadas: $DATES"
 
-          # Crear un JSON con las fechas para usar en la matriz
-          MATRIX="{\"date\": [$(
-              for date in $DATES; do
-                echo "\"$date\","
-              done | sed '$ s/,$//'
-          )]}"
-
-          # Exportar el JSON como salida del trabajo
-          echo "$MATRIX" > matrix.json
+          # Crear la matriz en formato JSON para usar en el strategy matrix
+          MATRIX=$(echo "$DATES" | jq -R -s -c 'split("\n")[:-1] | map({date: .})')
+          echo "Matriz generada: $MATRIX"
+          
+          # Establecer la salida del paso
+          echo "::set-output name=matrix::$MATRIX"
         outputs:
           matrix: ${{ steps.set_matrix.outputs.matrix }}
 
@@ -48,9 +45,10 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const fs = require('fs');
-            const matrix = JSON.parse(fs.readFileSync('matrix.json', 'utf-8'));
-            return matrix;
+            const matrix = JSON.parse(process.env.MATRIX);
+            return { matrix: matrix };
+        env:
+          MATRIX: ${{ steps.set_matrix.outputs.matrix }}
 
       - name: Fetch and Cache Image for Date ${{ matrix.date }}
         run: |
